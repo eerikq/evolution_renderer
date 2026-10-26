@@ -1,8 +1,10 @@
 #pragma once
 
+#include <SDL3/SDL.h>
 #include <volk.h>
 
 VkResult swapchainCreate(
+    SDL_Window** sdl_window,
     const VkPhysicalDevice physical_device,
     const VkDevice logical_device,
     const VkSurfaceKHR surface,

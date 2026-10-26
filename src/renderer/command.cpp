@@ -1,8 +1,6 @@
 #include "command.h"
 
 #include "engine_config.h"
-#include "types/vertex.h"
-#include "vulkan/vulkan_core.h"
 
 #include <vector>
 
@@ -101,7 +99,8 @@ void commandRecordBuffer(
     const VkDescriptorSet* descriptor_sets,
     const VkExtent2D swapchain_extent,
     const VkBuffer* vertex_buffer,
-    const VkBuffer* index_buffer
+    const VkBuffer* index_buffer,
+    const uint32_t index_buffer_size
 ) {
     VkCommandBuffer command_buffer = command_buffers[frame_index];
 
@@ -183,7 +182,7 @@ void commandRecordBuffer(
 
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout, 0, 1, &descriptor_sets[frame_index], 0, nullptr);
 
-    vkCmdDrawIndexed(command_buffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+    vkCmdDrawIndexed(command_buffer, index_buffer_size, 1, 0, 0, 0);
     vkCmdEndRendering(command_buffer);
 
     transition_image_layout(
@@ -191,6 +190,4 @@ void commandRecordBuffer(
         VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, {}, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
         VK_IMAGE_ASPECT_COLOR_BIT
     );
-
-    vkEndCommandBuffer(command_buffer);
 }

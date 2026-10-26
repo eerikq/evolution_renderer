@@ -2,7 +2,6 @@
 
 #include "types/vertex.h"
 #include "util/file.h"
-#include "vulkan/vulkan_core.h"
 
 #include <array>
 
