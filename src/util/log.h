@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <fmt/chrono.h>
 #include <fmt/color.h>
 
@@ -40,8 +41,11 @@ void evoLog(PrintSeverity severity, const char* message, T&&... args) {
     }
 
     fmt::memory_buffer buffer;
+
+    // using this directly doesn't account for timezones. e.g. "20:24" gets printed as "18:24"
     auto now = std::chrono::system_clock::now();
-    auto clean_now = std::chrono::floor<std::chrono::seconds>(now);
+    auto local_now = std::chrono::current_zone()->to_local(now);
+    auto clean_now = std::chrono::floor<std::chrono::milliseconds>(local_now);
 
     fmt::format_to(std::back_inserter(buffer), fg(fmt::color::dim_gray), "[{:%H:%M:%S}]", clean_now);
     fmt::format_to(std::back_inserter(buffer), fg(severity_color), "[{}]: ", severity_text);

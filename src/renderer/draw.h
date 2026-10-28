@@ -1,5 +1,7 @@
 #pragma once
 
+#include "shader_variables.h"
+
 #include <volk.h>
 
 void drawFrame(
@@ -22,5 +24,7 @@ void drawFrame(
     const VkExtent2D swapchain_extent,
     const VkBuffer* vertex_buffer,
     const VkBuffer* index_buffer,
-    void** uniform_buffers_mapped
+    void** uniform_buffers_mapped,
+    const uint32_t index_buffer_size,
+    const ShaderVariables shader_variables
 );

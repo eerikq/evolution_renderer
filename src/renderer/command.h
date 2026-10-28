@@ -26,5 +26,6 @@ void commandRecordBuffer(
     const VkDescriptorSet* descriptor_sets,
     const VkExtent2D swapchain_extent,
     const VkBuffer* vertex_buffer,
-    const VkBuffer* index_buffer
+    const VkBuffer* index_buffer,
+    const uint32_t index_buffer_size
 );

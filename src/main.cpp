@@ -1,11 +1,13 @@
-// fundemental
-#include "renderer/depth.h"
+// fundemental (core)
+#include "shader_variables.h"
 #include "util/image.h"
 #include "util/log.h"
+#include "util/model.h"
 // application
 #include "platform/window.h"
 // graphics
 #include "renderer/command.h"
+#include "renderer/depth.h"
 #include "renderer/descriptor.h"
 #include "renderer/device.h"
 #include "renderer/draw.h"
@@ -26,10 +28,11 @@
 #include "buffer_context.h"
 #include "device_context.h"
 #include "rendering_context.h"
-#include "vulkan/vulkan_core.h"
 #include "vulkan_context.h"
 
-#include <SDL3/SDL.h>
+#include <imgui.h>
+#include <imgui_impl_sdl3.h>
+#include <imgui_impl_vulkan.h>
 
 EngineConfig engine_config;
 EngineState engine_state;
@@ -39,6 +42,60 @@ DeviceContext device_context;
 RenderingContext rendering_context;
 VulkanContext vulkan_context;
 
+ShaderVariables shader_variables {};
+SDL_Window* sdl_window;
+
+void init_imgui() {
+    ImGui::CreateContext();
+    ImGui_ImplSDL3_InitForVulkan(sdl_window);
+
+    VkDescriptorPoolSize pool_sizes[] {
+        {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+        {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}
+    };
+
+    VkDescriptorPoolCreateInfo pool_info {
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+        .flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+        .maxSets = 1000,
+        .poolSizeCount = (uint32_t)std::size(pool_sizes),
+        .pPoolSizes = pool_sizes,
+    };
+
+    VkDescriptorPool imgui_pool;
+    vkCreateDescriptorPool(device_context.logical_device, &pool_info, nullptr, &imgui_pool);
+
+    ImGui_ImplVulkan_InitInfo init_info {
+        .Instance = vulkan_context.instance,
+        .PhysicalDevice = device_context.physical_device,
+        .Device = device_context.logical_device,
+        .Queue = device_context.graphics_queue,
+        .DescriptorPool = imgui_pool,
+        .MinImageCount = 3,
+        .ImageCount = 3,
+        .PipelineInfoMain =
+            {.MSAASamples = VK_SAMPLE_COUNT_1_BIT,
+             .PipelineRenderingCreateInfo =
+                 {
+                     .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+                     .colorAttachmentCount = 1,
+                     .pColorAttachmentFormats = &rendering_context.swapchain_surface_format.format,
+                 }},
+        .UseDynamicRendering = true
+    };
+
+    ImGui_ImplVulkan_Init(&init_info);
+}
+
 void init_vulkan() {
     // instance
     volkInitialize(); // add a check here later to ensure VK_SUCCESS is returned
@@ -47,7 +104,7 @@ void init_vulkan() {
     vulkanCreateDebugMessenger(vulkan_context.instance, &vulkan_context.debug_messenger);
 
     // window
-    window::CreateSurface(vulkan_context.instance, &rendering_context.surface);
+    window::CreateSurface(&sdl_window, vulkan_context.instance, &rendering_context.surface);
 
     // device
     device::PickPhysical(vulkan_context.instance, &device_context.physical_device);
@@ -63,7 +120,7 @@ void init_vulkan() {
 
     // swapchain
     swapchainCreate(
-        device_context.physical_device, device_context.logical_device, rendering_context.surface, &rendering_context.swapchain,
+        &sdl_window, device_context.physical_device, device_context.logical_device, rendering_context.surface, &rendering_context.swapchain,
         &rendering_context.swapchain_extent, &rendering_context.swapchain_surface_format
     );
 
@@ -99,6 +156,9 @@ void init_vulkan() {
     commandCreatePool(device_context.logical_device, device_context.queue_index, &vulkan_context.command_pool);
     commandAllocateBuffers(device_context.logical_device, vulkan_context.command_pool, vulkan_context.command_buffers.data());
 
+    // model
+    model::Load("assets/viking_room.obj", &buffer_context.vertices, &buffer_context.indices);
+
     // vertex buffer
     buffer::Create(
         sizeof(buffer_context.vertices[0]) * buffer_context.vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, 0,
@@ -120,7 +180,7 @@ void init_vulkan() {
     );
 
     // image
-    if (!image::LoadFromFile("assets/industry.png", &buffer_context.image)) return;
+    if (!image::LoadFromFile("assets/viking_room.png", &buffer_context.image)) return;
 
     // texture
     texture::CreateFromImage(device_context.logical_device, vulkan_context.allocator, 0, &buffer_context.image, &buffer_context.texture);
@@ -161,6 +221,26 @@ void main_loop() {
     while (engine_state.is_running) {
         SDL_Event event;
 
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_EventType::SDL_EVENT_QUIT) {
+                engine_state.is_running = false;
+            } else if (event.type == SDL_EventType::SDL_EVENT_WINDOW_RESIZED) {
+                engine_state.framebuffer_resized = true;
+            }
+
+            ImGui_ImplSDL3_ProcessEvent(&event);
+        }
+
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::SliderFloat3("Sun Direction", shader_variables.sun_direction, -180.0f, 180.0f);
+        ImGui::SliderFloat3("Sun Color", shader_variables.sun_color, 0.0f, 1.0f);
+        ImGui::SliderFloat("Sun Intensity", &shader_variables.sun_intensity, 0.0f, 64.0f);
+
+        ImGui::Render();
+
         drawFrame(
             &engine_state.frame_index, device_context.logical_device, rendering_context.in_flight_fences.data(),
             static_cast<uint32_t>(rendering_context.in_flight_fences.size()), rendering_context.present_complete_semaphores.data(),
@@ -168,18 +248,10 @@ void main_loop() {
             vulkan_context.command_buffers.data(), rendering_context.swapchain_images.data(), rendering_context.swapchain_image_views.data(),
             &buffer_context.depth.data, &buffer_context.depth.view, vulkan_context.graphics_pipeline, vulkan_context.pipeline_layout,
             vulkan_context.descriptor_sets.data(), rendering_context.swapchain_extent, &buffer_context.vertex_buffer.data, &buffer_context.index_buffer.data,
-            buffer_context.uniform_buffers_mapped.data()
+            buffer_context.uniform_buffers_mapped.data(), buffer_context.indices.size(), shader_variables
         );
 
         // evoLog(PrintSeverity::Debug, "drew frame");
-
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_EventType::SDL_EVENT_QUIT) {
-                engine_state.is_running = false;
-            } else if (event.type == SDL_EventType::SDL_EVENT_WINDOW_RESIZED) {
-                engine_state.framebuffer_resized = true;
-            }
-        }
     }
 }
 
@@ -188,13 +260,14 @@ void cleanup() {
     vulkanDestroyDebugMessenger(vulkan_context.instance, &vulkan_context.debug_messenger);
     vulkanDestroyInstance(&vulkan_context.instance);
 
-    window::Destroy();
+    window::Destroy(&sdl_window);
 }
 
 int main() {
     try {
-        window::Create();
+        window::Create(&sdl_window);
         init_vulkan();
+        init_imgui();
         main_loop();
         cleanup();
     } catch (const std::exception& e) {

@@ -6,6 +6,37 @@
 #include "util/log.h"
 
 #include <cassert>
+#include <imgui.h>
+#include <imgui_impl_vulkan.h>
+
+void drawImgui(const VkCommandBuffer command_buffer, const VkExtent2D swapchain_extent, const VkImageView* swapchain_image_views, const uint32_t image_index) {
+    VkClearValue clear_value {0.0f, 0.0f, 0.0f, 0.0f};
+
+    VkRenderingAttachmentInfo color_attachment_info {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+        .imageView = swapchain_image_views[image_index],
+        .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD, // VK_ATTACHMENT_LOAD_OP_CLEAR or VK_ATTACHMENT_LOAD_OP_LOAD
+        .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+        .clearValue = clear_value
+    };
+
+    VkRenderingInfo rendering_info {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .renderArea =
+            {
+                .offset = {0, 0},
+                .extent = swapchain_extent,
+            },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &color_attachment_info,
+    };
+
+    vkCmdBeginRendering(command_buffer, &rendering_info);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), command_buffer);
+    vkCmdEndRendering(command_buffer);
+}
 
 void drawFrame(
     int* frame_index,
@@ -27,7 +58,9 @@ void drawFrame(
     const VkExtent2D swapchain_extent,
     const VkBuffer* vertex_buffer,
     const VkBuffer* index_buffer,
-    void** uniform_buffers_mapped
+    void** uniform_buffers_mapped,
+    const uint32_t index_buffer_size,
+    const ShaderVariables shader_variables
 ) {
     if (vkWaitForFences(logical_device, 1, &in_flight_fences[*frame_index], VK_TRUE, UINT64_MAX) != VK_SUCCESS) throw "failed to wait for fence!";
 
@@ -63,12 +96,20 @@ void drawFrame(
 
     commandRecordBuffer(
         *frame_index, image_index, command_buffers, swapchain_images, swapchain_image_views, depth_image, depth_image_view, graphics_pipeline, pipeline_layout,
-        descriptor_sets, swapchain_extent, vertex_buffer, index_buffer
+        descriptor_sets, swapchain_extent, vertex_buffer, index_buffer, index_buffer_size
     );
+    // vkEndCommandBuffer(command_buffers[*frame_index]);
+    //
+    // VkCommandBufferBeginInfo begin_info {
+    //    .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    //};
+    // vkBeginCommandBuffer(command_buffers[*frame_index], &begin_info);
+    drawImgui(command_buffers[*frame_index], swapchain_extent, swapchain_image_views, image_index);
+    vkEndCommandBuffer(command_buffers[*frame_index]);
 
     vkQueueWaitIdle(graphics_queue);
 
-    uniform::UpdateBuffers(*frame_index, swapchain_extent, uniform_buffers_mapped);
+    uniform::UpdateBuffers(shader_variables, *frame_index, swapchain_extent, uniform_buffers_mapped);
 
     VkPipelineStageFlags wait_destionation_stage_mask(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
     const VkSubmitInfo submit_info {

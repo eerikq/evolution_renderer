@@ -6,11 +6,11 @@
 #include <algorithm>
 #include <vector>
 
-static VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR capabilities) {
+static VkExtent2D chooseSwapExtent(SDL_Window** sdl_window, const VkSurfaceCapabilitiesKHR capabilities) {
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) return capabilities.currentExtent;
 
     int width, height;
-    window::GetSizeInPixels(&width, &height);
+    window::GetSizeInPixels(sdl_window, &width, &height);
 
     return {
         std::clamp(static_cast<uint32_t>(width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
@@ -47,6 +47,7 @@ static VkPresentModeKHR chooseSwapPresentMode(const VkPresentModeKHR* available_
 }
 
 VkResult swapchainCreate(
+    SDL_Window** sdl_window,
     const VkPhysicalDevice physical_device,
     const VkDevice logical_device,
     const VkSurfaceKHR surface,
@@ -59,7 +60,7 @@ VkResult swapchainCreate(
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &surface_capabilities);
 
     uint32_t min_image_count = chooseSwapMinImageCount(surface_capabilities);
-    *swapchain_extent = chooseSwapExtent(surface_capabilities);
+    *swapchain_extent = chooseSwapExtent(sdl_window, surface_capabilities);
 
     // swapchain surface format
     uint32_t surface_formats_count = 0;

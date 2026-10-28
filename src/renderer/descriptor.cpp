@@ -2,6 +2,7 @@
 
 #include "engine_config.h"
 #include "types/ubo.h"
+#include "vulkan/vulkan_core.h"
 
 #include <array>
 #include <vector>
@@ -12,7 +13,7 @@ namespace descriptor {
             .binding = 1,
             .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount = 1,
-            .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT,
+            .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT,
             .pImmutableSamplers = nullptr,
         };
 
@@ -20,7 +21,7 @@ namespace descriptor {
             .binding = 0,
             .descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .descriptorCount = 1,
-            .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT,
+            .stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT | VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT,
             .pImmutableSamplers = nullptr
         };
 
