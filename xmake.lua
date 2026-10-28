@@ -12,28 +12,32 @@ else
 end
 
 -- libraries
-add_requires("volk 1.4.335+0")
-add_requires("vulkan-headers 1.4.335+0")
-add_requires("vulkan-memory-allocator 3.3.0")
--- add_requires("slang 2026.16") -- don't think i need this?
+add_repositories("local-repo xmake")
 
-add_requires("tinyobjloader")
--- add_requires("cgltf 1.15") -- implement after obj importing works
--- add_requires("assimp 6.0.5") -- assimp seems cool but i think cgltf does things in a way i like more
+    -- graphics-related libraries
+    add_requires("volk 1.4.335+0")
+    add_requires("vulkan-headers 1.4.335+0")
+    add_requires("vulkan-memory-allocator 3.3.0")
+    add_requires("slang 2026.14.1") -- local package
 
-add_requires("glm 1.0.3")
-add_requires("fmt 12.2.0")
-add_requires("stb 2026.03.18")
+    add_requires("tinyobjloader")
+    -- add_requires("cgltf 1.15") -- implement after obj importing works
+    -- add_requires("assimp 6.0.5") -- assimp seems cool but i think cgltf does things in a way i like more
 
-add_requires("libsdl3 3.4.12")
-add_requires("imgui v1.92.7-docking", {
-    configs = {
-        sdl3 = true,
-        sdl3_renderer = true,
-        vulkan = true,
-        volk = true,
-    },
-})
+    -- engine related libraries
+    add_requires("glm 1.0.3")
+    add_requires("fmt 12.2.0")
+    add_requires("stb 2026.03.18")
+
+    add_requires("libsdl3 3.4.12")
+    add_requires("imgui v1.92.7-docking", {
+        configs = {
+            sdl3 = true,
+            sdl3_renderer = true,
+            vulkan = true,
+            volk = true,
+        },
+    })
 
 target("evolution_renderer")
     set_kind("binary")
@@ -57,6 +61,7 @@ target("evolution_renderer")
     add_packages("volk")
     add_packages("vulkan-headers")
     add_packages("vulkan-memory-allocator")
+    add_packages("slang")
 
     add_packages("tinyobjloader")
 
